@@ -7,11 +7,25 @@ class Node():
         self.edges = []
         self.neighbors = []
         self.connections = {}
+
+        self.back_neighbors = []
+        self.back_edges = []
+        self.back_connections = {}
+        self.J = float('inf')
     
     def add_edge(self, node_rhs, edge, cost):
         self.connections[tuple(node_rhs.state)] = (edge, cost)
         self.edges.append(edge)
         self.neighbors.append(node_rhs)
+
+    def add_back_edge(self, node_rhs, back_edge, cost):
+        self.back_connections[tuple(node_rhs.state)] = (back_edge, cost)
+        self.back_edges.append(back_edge)
+        self.back_neighbors.append(node_rhs)
+
+    """
+    Forward Utilities
+    """
     
     def get_edges(self):
         return self.edges
@@ -27,12 +41,32 @@ class Node():
         
         return self.connections[key]
 
+    """
+    Backwards Tracking Utilities
+    """
+
+    def get_back_edges(self):
+        return self.back_edges
+
+    def get_back_neighbors(self):
+        return self.back_neighbors
+
+    def get_back_neighbor_path(self, neighbor):
+        key = tuple(neighbor.state)
+
+        if key not in self.back_connections.keys():
+            return [], float('inf')
+        
+        return self.back_connections[key]
+
     def distance(self, state):
         return math.sqrt( (self.state[0] - state[0])**2 + (self.state[1] - state[1])**2 )
 
 class NodeTrajectory():
     def __init__(self, node_start, traj=[], cost = 0):
         self.current_node = node_start
+        if len(traj) == 0:
+            traj = [node_start]
         self.node_traj = traj
         self.cost = cost
     

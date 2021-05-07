@@ -4,7 +4,10 @@
 # C Clark
 
 import math
+from datetime import datetime
+import os
 import dubins
+import imageio
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,6 +16,122 @@ COLLISION_INDEX_STEP_SIZE = 5
 ROBOT_RADIUS = 0.4 #m
 TURNING_RADIUS = 0.5
 EDGE_VEL = 1.0
+
+
+class LivePlotter():
+  def __init__(self, env, robot, nodes, dir="trials", a_traj = None, output=False, display=False):
+    self.env = env
+    self.robot = robot
+    self.nodes = nodes
+    self.a_traj = a_traj
+    self.output = output
+    self.display = display
+
+    if output:
+      now = datetime.now()
+      current_time = now.strftime("%H_%M_%S")
+      self.dir = os.path.join(dir, current_time)
+      os.makedirs(self.dir, exist_ok=False)
+
+  def generate_gif(self):
+    if self.output:
+      img_list = os.listdir(self.dir)
+      img_list = [os.path.splitext(path)[0] for path in img_list]
+      img_list.sort(key=lambda s: float(s))
+
+      images = []
+      for img in img_list:
+        filename = os.path.join(self.dir, img+".png")
+        images.append(imageio.imread(filename))
+
+      gif_name = os.path.join(self.dir, 'movie.gif')
+      imageio.mimsave(gif_name, images)
+
+  def plot(self, edge=None):
+    if (not self.display) and (not self.output):
+      return
+    
+    EDGE_COLOR = '0.8'
+
+    objects = self.env.get_all_objects()
+    walls = self.env.get_walls()
+
+    fig, axis_array = plt.subplots(1)
+    axis_array = [axis_array, None]
+    time_stamp_desired = []
+    x_desired = []
+    y_desired = []
+    theta_desired = []
+
+    # Plot the robot
+    axis_array[0].plot(self.robot.state[0], self.robot.state[1], 'C0x')
+
+    # Plots the nodes
+    for node in self.nodes:
+      axis_array[0].plot(node.state[0], node.state[1], color='lightgray', marker='x')
+
+    # time_stamp_actual = []
+    # x_actual = []
+    # y_actual = []
+    # theta_actual = []
+    # for tp in traj_actual:
+    #   time_stamp_actual.append(tp[0])
+    #   x_actual.append(tp[1])
+    #   y_actual.append(tp[2])
+    #   theta_actual.append(angle_diff(tp[3]))
+    # axis_array[0].plot(x_actual, y_actual, 'k')
+
+    ang_res = 0.2
+    for o in objects:
+      x_obj = []
+      y_obj = []
+      ang = 0
+      while ang < 6.28:
+        x_obj.append(o[0]+o[2]*math.cos(ang))
+        y_obj.append(o[1]+o[2]*math.sin(ang))
+        ang += ang_res
+      x_obj.append(x_obj[0])
+      y_obj.append(y_obj[0])
+      axis_array[0].plot(x_obj, y_obj, 'k')
+    for w in walls:
+      axis_array[0].plot([w[0], w[2]], [w[1], w[3]], 'k')
+
+    if self.a_traj is not None:
+      if len(self.a_traj) > 0:
+        x_, y_ = [], []
+        for tp in self.a_traj:
+          time_stamp_desired.append(tp[0])
+          x_.append(tp[1])
+          y_.append(tp[2])
+          theta_desired.append(angle_diff(tp[3]))
+        axis_array[0].plot(x_, y_, 'C0')
+        axis_array[0].plot(x_[0], y_[0], 'ko')
+        axis_array[0].plot(x_[-1], y_[-1], 'kx')
+
+    if edge is not None:
+      x_, y_ = [], []
+      for tp in edge:
+        time_stamp_desired.append(tp[0])
+        x_.append(tp[1])
+        y_.append(tp[2])
+        theta_desired.append(angle_diff(tp[3]))
+      axis_array[0].plot(x_, y_, 'C1')
+      axis_array[0].plot(x_[0], y_[0], 'ko')
+      axis_array[0].plot(x_[-1], y_[-1], 'kx')
+
+    axis_array[0].set_xlabel('X (m)')
+    axis_array[0].set_ylabel('Y (m)')
+    axis_array[0].axis('equal')
+
+    if self.output:
+      filename = os.path.join(self.dir, str(round(self.robot.t, 1))+".png")
+      plt.savefig(filename)
+      plt.close()
+    elif self.display:
+      plt.show()
+
+    
+  
 
 def construct_dubins_traj(start, end, t_start):
   """ Construct a trajectory in the X-Y space and in the time-X,Y,Theta space.
